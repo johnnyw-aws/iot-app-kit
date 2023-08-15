@@ -1,3 +1,49 @@
+# (WIP) REVIT POC
+
+```
+# checkout
+git clone -b main-revitTMDT --depth 1 https://github.com/johnnyw-aws/iot-app-kit.git
+
+# build -- note `npm run package` is having issues with cesium dependencies
+cd iot-app-kit/packages/tools-iottwinmaker && npm run build:cjs
+
+# install pre-req: propertyServer: https://github.com/wallabyway/propertyServer/tree/master
+git clone --depth 1 https://github.com/wallabyway/propertyServer.git
+cd propertyServer && npm install
+# start propertyServer, replace FORGE_CLIENT_ID=xxx and FORGE_CLIENT_SECRET=xxx with your FORGE credentials
+FORGE_CLIENT_ID=xxx FORGE_CLIENT_SECRET=xxx FORGE_CALLBACK=xxx node start.js
+
+# execute TMDT on rvt file
+node ./dist/cjs/cli.js init --revit-file [PATH_TO_RVT_FILE] --region us-east-1 --out [PROJECT_DIRECTORY]
+
+# example resulting directory structure
+% tree
+.
+├── 3d_models
+│   ├── 0551915b-128a-ab63-ee4d-18825d101da1.glb
+│   ├── 18474dc1-df69-767f-47ee-33e5eac5599d.glb
+│   ├── 23368c75-2548-64bf-edab-81e9a5b294e1.glb
+│   ├── 30e767fc-6fca-8b91-60c8-2cd50af08294.glb
+│   ├── 416e193c-65fc-a9e7-c0f1-e10440940028.glb
+│   ├── 453399dc-4fac-f28a-cd19-e3980219ca22.glb
+│   ├── 4f0b2fc9-aed4-dcf1-ede2-73107952b668.glb
+│   ├── 6bfb4886-f2ee-9ccb-8db0-c5c170220c40.glb
+│   ├── 7738212f-d458-662f-cb9c-cf7c761af18d.glb
+│   └── 95acfaa9-0937-2560-ab46-86b6e30ee42e.glb
+├── com.example.smartbuilding.revit.category.json
+├── com.example.smartbuilding.revit.metadata.json
+├── com.example.smartbuilding.revit.properties.json
+├── entities.json
+├── snowdon.json
+└── tmdt.json
+
+# deploy to twinmaker - need pre-existing workspace
+tmdt deploy --region us-east-1 --workspace-id [WORKSPACE_ID] --dir [PROJECT_DIRECTORY]
+```
+
+
+---
+
 # AWS IoT TwinMaker Development Tools
 
 This package contains functionality for the AWS IoT TwinMaker Development Tools (TMDT), a set of tools to aid in [IoT TwinMaker](https://docs.aws.amazon.com/iot-twinmaker/latest/guide/what-is-twinmaker.html) project management. 
