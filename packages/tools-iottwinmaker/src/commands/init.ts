@@ -11,11 +11,14 @@ import {
   GetComponentTypeCommandOutput,
 } from '@aws-sdk/client-iottwinmaker';
 import { verifyWorkspaceExists } from '../lib/utils';
+import {importRevitComponentTypes, importRevitFile, initEntitiesFromRevitJson} from "../lib/revit";
 
 export type Options = {
   region: string;
   'workspace-id': string;
   out: string;
+  'revit-json-file': string;
+  'revit-file': string;
 };
 
 export type tmdt_config_file = {
@@ -43,13 +46,23 @@ export const builder: CommandBuilder<Options> = (yargs) =>
     },
     'workspace-id': {
       type: 'string',
-      require: true,
+      require: false,
       description: 'Specify the ID of the Workspace to bootstrap the project from.',
     },
     out: {
       type: 'string',
       require: true,
       description: 'Specify the directory to initialize a project in.',
+    },
+    'revit-json-file': {
+      type: 'string',
+      require: false,
+      description: 'specify revit json file',
+    },
+    'revit-file': {
+      type: 'string',
+      require: false,
+      description: 'specify revit (.rvt) file',
     },
   });
 
@@ -340,11 +353,11 @@ export const handler = async (argv: Arguments<Options>) => {
   const workspaceId: string = argv['workspace-id'];
   const region: string = argv.region;
   const outDir: string = argv.out;
+  const revitJsonFile: string = argv['revit-json-file'];
+  const revitFile: string = argv['revit-file'];
   console.log(`Bootstrapping project from workspace ${workspaceId} in ${region} at project directory ${outDir}`);
 
   initDefaultAwsClients({ region: region });
-
-  await verifyWorkspaceExists(workspaceId);
 
   // create directory if not exists
   if (!fs.existsSync(outDir)) {
@@ -361,21 +374,35 @@ export const handler = async (argv: Arguments<Options>) => {
     entities: '',
   };
 
+  if (revitFile) {
+    tmdt_config = await importRevitFile(tmdt_config, outDir, revitFile);
+    tmdt_config = await importRevitComponentTypes(tmdt_config, outDir);
+  } else if (revitJsonFile) {
+    tmdt_config = await initEntitiesFromRevitJson(tmdt_config, outDir, revitJsonFile);
+    tmdt_config = await importRevitComponentTypes(tmdt_config, outDir);
+
+  } else if (workspaceId) {
+    await verifyWorkspaceExists(workspaceId);
+
+    // TODO revisit: import workspace bucket/role (probably need role for specialized permissions)
+
+    // import component types
+    console.log('====== Component Types ======');
+    tmdt_config = await import_component_types(workspaceId, tmdt_config, outDir);
+
+    // import scenes
+    console.log('====== Scenes / Models ======');
+    tmdt_config = await import_scenes_and_models(workspaceId, tmdt_config, outDir);
+
+    // import entities
+    console.log('========== Entities =========');
+    tmdt_config = await import_entities(workspaceId, tmdt_config, outDir);
+
+  } else {
+    throw new Error(`Either one of revit file or workspace must be provided`); // TODO better error message
+  }
+
   fs.writeFileSync(path.join(outDir, 'tmdt.json'), JSON.stringify(tmdt_config, null, 4));
-
-  // TODO revisit: import workspace bucket/role (probably need role for specialized permissions)
-
-  // import component types
-  console.log('====== Component Types ======');
-  tmdt_config = await import_component_types(workspaceId, tmdt_config, outDir);
-
-  // import scenes
-  console.log('====== Scenes / Models ======');
-  tmdt_config = await import_scenes_and_models(workspaceId, tmdt_config, outDir);
-
-  // import entities
-  console.log('========== Entities =========');
-  tmdt_config = await import_entities(workspaceId, tmdt_config, outDir);
 
   console.log('== Finishing bootstrap ... ==');
 

@@ -1,2 +1,4 @@
 dist
 tmdt_local
+*.d.ts*
+*.js
