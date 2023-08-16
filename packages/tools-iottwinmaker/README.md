@@ -5,7 +5,15 @@
 git clone -b main-revitTMDT --depth 1 https://github.com/johnnyw-aws/iot-app-kit.git
 
 # build -- note `npm run package` is having issues with cesium dependencies
-cd iot-app-kit/packages/tools-iottwinmaker && npm run build:cjs
+cd iot-app-kit 
+npm install husky
+npm install
+cd packages/tools-iottwinmaker
+npm install
+npm run build:cjs
+
+# verify build was successful -- should see --revit-file as an option
+node ./dist/cjs/cli.js init -h
 
 # install pre-req: propertyServer: https://github.com/wallabyway/propertyServer/tree/master
 git clone --depth 1 https://github.com/wallabyway/propertyServer.git
