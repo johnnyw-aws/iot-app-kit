@@ -16,10 +16,11 @@ import * as http from "http"
 // const fsExtra = require("fs-extra");
 // import {get_with_host} from "./revit_request"
 import fetch from 'node-fetch';
+import { setTimeout } from 'timers/promises';
 
 async function extract_revit_properties(urnBase64: string) {
   console.log("entering extract_revit_properties...");
-  // var response: any = await get_with_host(`http://localhost/data/${urnBase64}/load`);
+  var response: any = await fetch(`http://localhost/data/${urnBase64}/load`);
 
   // var response: any = await get_with_host('http://127.0.0.1', `/data/${urnBase64}/progress`);
 
@@ -32,12 +33,22 @@ async function extract_revit_properties(urnBase64: string) {
   //   return resp;
   // });
 
-  var response = await fetch(`http://localhost/data/${urnBase64}/load/progress`);
-  var data: any = await response.json();
+  var load_completed = false;
+  while (!load_completed) {
+    try {
+      response = await fetch(`http://localhost/data/${urnBase64}/load/progress`);
+      var data: any = await response.json();
 
-  while(data['status'] != 'completed') {
-    response = await fetch(`http://localhost/data/${urnBase64}/load/progress`);
-    data = await response.json();
+      while (data['status'] != 'completed') {
+        response = await fetch(`http://localhost/data/${urnBase64}/load/progress`);
+        data = await response.json();
+      }
+
+      load_completed = true;
+    } catch (e) {
+      console.log(e);
+      await setTimeout(5000);
+    }
   }
 
   console.log("property server load completed!")

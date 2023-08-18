@@ -1403,17 +1403,17 @@ async function importRevitComponentTypes(tmdt_config: tmdt_config_file, outDir: 
 }
 
 
-async function importRevitFile(tmdt_config: tmdt_config_file, outDir: string, rvtFile: string) {
+async function importRevitFile(tmdt_config: tmdt_config_file, outDir: string, rvtFile: string, forgeClient: string, forgeSecret: string, forgeBucketName: string) {
   console.log('rvtFile', rvtFile);
   console.log(outDir);
 
-  var forge_client_id = '8S1kvHTyVkaBdoKXnlPES9P4sBxHavGL';
-  var forge_secret = 'spECwALtKGq9qT2r';
+  var forge_client_id = forgeClient;
+  var forge_secret = forgeSecret;
   const auth = new AuthenticationClient(forge_client_id, forge_secret); // If no params, gets credentials from env. vars FORGE_CLIENT_ID and FORGE_CLIENT_SECRET
   const authentication = await auth.authenticate(['bucket:read', 'data:read', 'data:write']);
   console.log('2-legged Token', authentication.access_token);
 
-  var bucketName = 'johnnywu-revit-test'; // TODO config/param
+  var bucketName = forgeBucketName; //'johnnywu-revit-test'; // TODO config/param
   const data = new DataManagementClient(auth);
   // List buckets
   for await (const buckets of await data.buckets()) {
@@ -1427,7 +1427,7 @@ async function importRevitFile(tmdt_config: tmdt_config_file, outDir: string, rv
 
   // if (true) { // FIXME revert
   var rvtFileBuffer: Buffer = fs.readFileSync(path.join(rvtFile));
-  console.log("rvtFileBuffer length", rvtFileBuffer.length);
+  console.log("uploading Revit file to Autodesk Forge... rvtFileBuffer length: ", rvtFileBuffer.length);
   var res = await data.uploadObject(bucketName, `${rvtFile.split("/").slice(-1)[0]}`, 'application/octet-stream', rvtFileBuffer); // https://stackoverflow.com/questions/38339642/autodesk-forge-failed-to-trigger-translation-for-this-file
   // var res = await data.uploadObject(bucketName, 'snowdonRevitTest', rvtFile);
   // var res = data.uploadObject('johnnywu-revit-test', 'snowdonRevitTest', '/Users/johnnywu/Desktop/phoenix_revit/SnowdonSample.rvt');
@@ -1435,11 +1435,12 @@ async function importRevitFile(tmdt_config: tmdt_config_file, outDir: string, rv
 
   var objectUrn: string = res['objectId'];
   var objectUrnBase64 = Buffer.from(objectUrn, 'utf-8').toString('base64');
-  console.log('objectUrnBase64', objectUrnBase64);
+  console.log('upload completed, objectUrnBase64:', objectUrnBase64);
 
+  console.log('submitting conversion job...');
   const derivatives = new ModelDerivativeClient(auth);
   const job = await derivatives.submitJob(objectUrnBase64, [{ type: 'svf', views: ['2d', '3d'], advanced: {generateMasterViews: true} }]);
-  console.log('Job', job);
+  console.log('conversion job response', job);
   // }
 
   // var job =  {
@@ -1452,6 +1453,7 @@ async function importRevitFile(tmdt_config: tmdt_config_file, outDir: string, rv
 
   // await axios.get(`https://developer.api.autodesk.com/modelderivative/v2/designdata/dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6am9obm55d3UtcmV2aXQtdGVzdC9zbm93ZG9uUmV2aXRUZXN0LnJ2dA/manifest`)
 
+  console.log('waiting for conversion job completion...');
   var response: any = await get(`https://developer.api.autodesk.com/modelderivative/v2/designdata/${job.urn}/manifest`, {
     'Authorization': 'Bearer ' + authentication.access_token,
   });
@@ -1464,16 +1466,19 @@ async function importRevitFile(tmdt_config: tmdt_config_file, outDir: string, rv
     console.log(response);
   }
 
-  console.log("completed!")
+  console.log("conversion job completed!")
 
-  var resourceDir = '/tmp/rvtConvert/';
-
-  if (true) { // TODO revert
-  await run(job.urn, resourceDir, forge_client_id, forge_secret);
-  // TODO note that the sqlite file isnt generated, though we're not using it either in the current pipeline
+  if (!fs.existsSync(path.join(outDir, 'revit_convert'))) { // FIXME case where multiple revit files to same dir
+    fs.mkdirSync(path.join(outDir, 'revit_convert'));
   }
+  var resourceDir = path.join(outDir, 'revit_convert');
 
-  console.log("downloaded gltf files")
+  // if (true) { // TODO revert
+  var model_files = await run(job.urn, resourceDir, forge_client_id, forge_secret);
+  // TODO note that the sqlite file isnt generated, though we're not using it either in the current pipeline
+  // }
+
+  console.log("downloaded gltf files", model_files)
 
   // fs.readdirSync( resourceDir ).forEach( file => {
   //
@@ -1491,31 +1496,26 @@ async function importRevitFile(tmdt_config: tmdt_config_file, outDir: string, rv
   var modelFilePaths = [];
 
   if (true) {
-  const files = fs.readdirSync(resourceDir, { withFileTypes: true });
-  for (const file of files) {
-    if (file.isDirectory()) {
-      console.log(file.name)
+  // const files = fs.readdirSync(resourceDir, { withFileTypes: true });
+  for (const gltf_dir_path of model_files) {
+    // if (file.isDirectory()) {
+      console.log(gltf_dir_path)
       // var gltfpath = path.join(resourceDir, file.name, 'output.gltf')
+      var gltf_guid = gltf_dir_path.split("/").slice(-1)[0];
 
-      modelFilePaths.push(path.join(resourceDir, file.name, `${file.name}.glb`));
+      modelFilePaths.push(path.join(gltf_dir_path, `${gltf_guid}.glb`));
 
       if(true) {
       await run_gltf_pipeline(
-        path.join(resourceDir, file.name, 'output.gltf'),
-        path.join(resourceDir, file.name),
-        path.join(resourceDir, file.name, `${file.name}.glb`))
+        path.join(gltf_dir_path, 'output.gltf'),
+        path.join(gltf_dir_path),
+        path.join(gltf_dir_path, `${gltf_guid}.glb`))
       }
-    }
+    // }
   }
   }
 
-  // run_gltf_pipeline(
-  //   '/tmp/rvtConvert/0551915b-128a-ab63-ee4d-18825d101da1/output.gltf',
-  //   '/tmp/rvtConvert/0551915b-128a-ab63-ee4d-18825d101da1/',
-  //   '/tmp/rvtConvert/0551915b-128a-ab63-ee4d-18825d101da1/draco-out.glb')
-
-
-  tmdt_config = await prepareSceneFile(tmdt_config, outDir, modelFilePaths);
+  tmdt_config = await prepareSceneFile(tmdt_config, outDir, modelFilePaths, rvtFile.split("/").slice(-1)[0].split(".rvt")[0]);
 
 
 
@@ -1529,20 +1529,22 @@ async function importRevitFile(tmdt_config: tmdt_config_file, outDir: string, rv
 }
 
 
-async function prepareSceneFile(tmdt_config: tmdt_config_file, outDir: string, model_file_paths: string[]) {
+async function prepareSceneFile(tmdt_config: tmdt_config_file, outDir: string, model_file_paths: string[], revitFileName: string) {
 
   console.log('modelFilePaths', model_file_paths);
+  console.log('revitFileName', revitFileName);
 
   // for each file in model_file_paths: add to root in scene, move model ref to out location, add to tmdt config
   // save scene to tmdt config
 
-  var twinMakerScene = new IotTwinMakerSceneImpl('', 'snowdon', '');
+  var sceneId = revitFileName.split(".rvt")[0];
+  var twinMakerScene = new IotTwinMakerSceneImpl('', sceneId, '');
 
   // Clear scene to fully overwrite it
   // twinMakerScene.clear();
 
   // Add a Root Node to the Scene
-  console.log('Building Cookie Factory scene...');
+  console.log(`Building scene [${sceneId}] from models converted from Revit file...`);
   const rootNode = new EmptyNode('AWSIoTTwinMakerScene');
 
   // Set the Environmental Preset in the Scene settings
@@ -1592,7 +1594,7 @@ async function prepareSceneFile(tmdt_config: tmdt_config_file, outDir: string, m
   // environmentNode.addChildNode(equipmentNode);
 
   // add asset node
-  const assetNode = new EmptyNode('Snowdon');
+  const assetNode = new EmptyNode(revitFileName);
   rootNode.addChildNode(assetNode);
 
   if (!fs.existsSync(path.join(outDir, '3d_models'))) {
@@ -1758,15 +1760,13 @@ async function prepareSceneFile(tmdt_config: tmdt_config_file, outDir: string, m
   var serializer: Serializer = new Serializer();
 
 
-  // factory.saveLocal(twinMakerScene, '/tmp/rvtConvert')
   twinMakerScene.selfCheck();
-  const sceneId = twinMakerScene.getSceneId();
 
   const sceneFile = `${withTrailingSlash(outDir)}${sceneId}.json`;
   const sceneJson = serializer.serializeScene(twinMakerScene as IotTwinMakerSceneImpl);
   // Write scene JSON to the provided localPath
   fs.writeFileSync(sceneFile, sceneJson);
-  console.log(`${sceneId}.json saved to ${'/tmp/rvtConvert'} !`);
+  console.log(`${sceneId}.json saved to ${sceneFile} !`);
 
   tmdt_config.scenes.push(`${sceneId}.json`)
 

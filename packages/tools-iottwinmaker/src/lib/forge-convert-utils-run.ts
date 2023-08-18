@@ -25,11 +25,14 @@ async function run(urn: any, outputDir: any, forge_client_id: string, forge_clie
     // filter: (dbid: any) => (dbid >= 100 && dbid <= 200) // only output objects with dbIDs between 100 and 200
   };
   const writer = new GltfWriter(writerOptions);
+  var files = [];
   for (const derivative of derivatives.filter(d => d.mime === 'application/autodesk-svf')) {
     const reader = await SvfReader.FromDerivativeService(urn, derivative.guid, auth);
     const scene = await reader.read(readerOptions);
     await writer.write(scene, path.join(outputDir, derivative.guid));
+    files.push(path.join(outputDir, derivative.guid))
   }
+  return files;
 }
 
 export { run }

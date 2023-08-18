@@ -14,7 +14,12 @@ cd propertyServer && npm install
 FORGE_CLIENT_ID=xxx FORGE_CLIENT_SECRET=xxx FORGE_CALLBACK=xxx node start.js
 
 # execute TMDT on rvt file
-node ./dist/cjs/cli.js init --revit-file [PATH_TO_RVT_FILE] --region us-east-1 --out [PROJECT_DIRECTORY]
+node ./dist/cjs/cli.js init \
+  --revit-file [PATH_TO_RVT_FILE] \
+  --out [PROJECT_DIRECTORY] \
+  --forge-client [FORGE_CLIENT_ID] \
+  --forge-secret [FORGE_CLIENT_SECRET] \
+  --forge-bucket-name [FORGE_BUCKET_NAME]
 
 # example resulting directory structure
 % tree

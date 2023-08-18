@@ -19,6 +19,9 @@ export type Options = {
   out: string;
   'revit-json-file': string;
   'revit-file': string;
+  'forge-client': string;
+  'forge-secret': string;
+  'forge-bucket-name': string;
 };
 
 export type tmdt_config_file = {
@@ -41,7 +44,7 @@ export const builder: CommandBuilder<Options> = (yargs) =>
   yargs.options({
     region: {
       type: 'string',
-      require: true,
+      require: false,
       description: 'Specify the AWS region of the Workspace to bootstrap the project from.',
     },
     'workspace-id': {
@@ -54,16 +57,26 @@ export const builder: CommandBuilder<Options> = (yargs) =>
       require: true,
       description: 'Specify the directory to initialize a project in.',
     },
-    'revit-json-file': {
-      type: 'string',
-      require: false,
-      description: 'specify revit json file',
-    },
     'revit-file': {
       type: 'string',
       require: false,
       description: 'specify revit (.rvt) file',
     },
+    'forge-client': {
+      type: 'string',
+      require: false,
+      description: 'TODO',
+    },
+    'forge-secret': {
+      type: 'string',
+      require: false,
+      description: 'TODO',
+    },
+    'forge-bucket-name': {
+      type: 'string',
+      require: false,
+      description: 'TODO',
+    }
   });
 
 async function import_component_types(workspaceIdStr: string, tmdt_config: tmdt_config_file, outDir: string) {
@@ -355,6 +368,9 @@ export const handler = async (argv: Arguments<Options>) => {
   const outDir: string = argv.out;
   const revitJsonFile: string = argv['revit-json-file'];
   const revitFile: string = argv['revit-file'];
+  const forgeClient: string = argv['forge-client'];
+  const forgeSecret: string = argv['forge-secret'];
+  const forgeBucketName: string = argv['forge-bucket-name'];
   console.log(`Bootstrapping project from workspace ${workspaceId} in ${region} at project directory ${outDir}`);
 
   initDefaultAwsClients({ region: region });
@@ -375,7 +391,7 @@ export const handler = async (argv: Arguments<Options>) => {
   };
 
   if (revitFile) {
-    tmdt_config = await importRevitFile(tmdt_config, outDir, revitFile);
+    tmdt_config = await importRevitFile(tmdt_config, outDir, revitFile, forgeClient, forgeSecret, forgeBucketName);
     tmdt_config = await importRevitComponentTypes(tmdt_config, outDir);
   } else if (revitJsonFile) {
     tmdt_config = await initEntitiesFromRevitJson(tmdt_config, outDir, revitJsonFile);
