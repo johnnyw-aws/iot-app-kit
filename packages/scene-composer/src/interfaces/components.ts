@@ -12,6 +12,7 @@ export enum KnownComponentType {
   Camera = 'Camera',
   Light = 'Light',
 
+  Animation = 'Animation',
   Tag = 'Tag',
   ModelShader = 'ModelShader',
   MotionIndicator = 'MotionIndicator',
@@ -47,8 +48,13 @@ export interface IAnchorComponent extends ISceneComponent {
   navLink?: INavLink;
   offset?: Vector3;
   chosenColor?: string;
+  customColors?: string[];
 }
-
+export interface IAnimationComponent extends ISceneComponent {
+  selector?: number;
+  uri: string;
+  currentAnimations: string[];
+}
 /**
  * Default Anchor status strings
  */
@@ -72,6 +78,7 @@ export interface ITagData {
   chosenColor?: string;
   navLink?: INavLink;
   dataBindingContext?: unknown;
+  customColors?: string[];
 }
 
 /**
