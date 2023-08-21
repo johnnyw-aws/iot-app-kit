@@ -21,7 +21,7 @@ cd propertyServer && npm install
 # start propertyServer, replace FORGE_CLIENT_ID=xxx and FORGE_CLIENT_SECRET=xxx with your FORGE credentials
 FORGE_CLIENT_ID=xxx FORGE_CLIENT_SECRET=xxx FORGE_CALLBACK=xxx node start.js
 
-# execute TMDT on rvt file
+# execute TMDT on rvt file, Note: you must have existing Forge credentials + bucket created
 node ./dist/cjs/cli.js init \
   --revit-file [PATH_TO_RVT_FILE] \
   --out [PROJECT_DIRECTORY] \
